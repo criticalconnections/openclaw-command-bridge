@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --production
+RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
 
 # Copy application files
 COPY . .
