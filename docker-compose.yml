@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  command-bridge:
+    build: .
+    container_name: command-bridge
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3333}:3333"
+    environment:
+      - OPENCLAW_GATEWAY_URL=${OPENCLAW_GATEWAY_URL:-http://host.docker.internal:18789}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OPENCLAW_WORKSPACE=${OPENCLAW_WORKSPACE:-/workspace}
+      - NODE_ENV=production
+    volumes:
+      - ${OPENCLAW_WORKSPACE:-~/.openclaw/workspace}:/workspace:ro
+      - command-bridge-data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  command-bridge-data:

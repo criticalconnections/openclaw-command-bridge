@@ -1,0 +1,30 @@
+{
+  "name": "command-bridge",
+  "version": "1.0.0",
+  "description": "Web dashboard for OpenClaw - monitor cron jobs, sessions, memory files, and system status",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "openclaw",
+    "dashboard",
+    "monitoring",
+    "ai",
+    "agent"
+  ],
+  "author": "OpenClaw Community",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openclaw/command-bridge.git"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

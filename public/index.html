@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Command Bridge</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+</head>
+<body>
+  <div class="refresh-bar" id="refreshBar"></div>
+  
+  <!-- Sidebar Navigation -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">Command Bridge</span>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+        <span class="toggle-icon"></span>
+      </button>
+    </div>
+    
+    <div class="sidebar-nav">
+      <button class="nav-item active" data-page="home">
+        <span class="nav-icon">home</span>
+        <span class="nav-label">Home</span>
+      </button>
+      
+      <div class="nav-divider"></div>
+      
+      <div class="nav-section-header">OPERATIONS</div>
+      <button class="nav-item" data-page="cron">
+        <span class="nav-icon">schedule</span>
+        <span class="nav-label">Cron Jobs</span>
+      </button>
+      <button class="nav-item" data-page="services">
+        <span class="nav-icon">dns</span>
+        <span class="nav-label">Services</span>
+      </button>
+      <button class="nav-item" data-page="sessions">
+        <span class="nav-icon">forum</span>
+        <span class="nav-label">Sessions</span>
+      </button>
+      
+      <div class="nav-divider"></div>
+      
+      <div class="nav-section-header">DATA</div>
+      <button class="nav-item" data-page="memory">
+        <span class="nav-icon">psychology</span>
+        <span class="nav-label">Memory</span>
+      </button>
+      <button class="nav-item" data-page="files">
+        <span class="nav-icon">folder</span>
+        <span class="nav-label">Files</span>
+      </button>
+      <button class="nav-item" data-page="projects" id="navProjects" style="display:none">
+        <span class="nav-icon">folder_open</span>
+        <span class="nav-label">Projects</span>
+      </button>
+      
+      <div class="nav-divider"></div>
+      
+      <div class="nav-section-header">SYSTEM</div>
+      <button class="nav-item" data-page="config">
+        <span class="nav-icon">settings</span>
+        <span class="nav-label">Config</span>
+      </button>
+      <button class="nav-item" data-page="integrations">
+        <span class="nav-icon">extension</span>
+        <span class="nav-label">Integrations</span>
+      </button>
+    </div>
+  </nav>
+  
+  <!-- Mobile menu button -->
+  <button class="mobile-menu-btn" id="mobileMenuBtn">
+    <span>☰</span>
+  </button>
+  
+  <!-- Mobile overlay -->
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+  
+  <!-- Main Content Area -->
+  <div class="main-content" id="mainContent">
+    <header class="content-header">
+      <div class="page-title" id="pageTitle">
+        <span id="pageTitleIcon">🏠</span>
+        <span id="pageTitleText">Home</span>
+      </div>
+      <div class="header-right">
+        <div class="status-pill offline" id="gatewayStatus">
+          <span class="status-dot"></span>
+          <span id="gatewayText">Checking...</span>
+        </div>
+        <div class="current-time" id="currentTime">--:--</div>
+      </div>
+    </header>
+
+    <!-- PAGE: Home -->
+    <div class="page active" id="page-home">
+      <div id="welcomeHeader" class="welcome-header"></div>
+      
+      <div class="stats-grid">
+        <div class="stat-card" id="statProjects">
+          <div class="stat-icon">folder_open</div>
+          <div class="stat-content">
+            <div class="stat-label">Projects</div>
+            <div class="stat-value">—</div>
+          </div>
+        </div>
+        <div class="stat-card" id="statCron">
+          <div class="stat-icon">schedule</div>
+          <div class="stat-content">
+            <div class="stat-label">Cron Jobs</div>
+            <div class="stat-value">—</div>
+          </div>
+        </div>
+        <div class="stat-card" id="statSessions">
+          <div class="stat-icon">forum</div>
+          <div class="stat-content">
+            <div class="stat-label">Sessions</div>
+            <div class="stat-value">—</div>
+          </div>
+        </div>
+        <div class="stat-card" id="statSystem">
+          <div class="stat-icon">computer</div>
+          <div class="stat-content">
+            <div class="stat-label">System</div>
+            <div class="stat-value">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="home-section">
+        <h3><span class="material-icons-outlined" style="font-size:20px;vertical-align:middle">info</span> Welcome</h3>
+        <p style="color:var(--md-on-surface-variant)">
+          Command Bridge is your web dashboard for OpenClaw. Monitor cron jobs, sessions, memory files, and system status from one place.
+        </p>
+        <p style="margin-top:12px;color:var(--md-on-surface-variant)">
+          Use the sidebar to navigate between sections. Check <strong>Integrations</strong> to see which services are connected.
+        </p>
+      </div>
+    </div>
+
+    <!-- PAGE: Cron -->
+    <div class="page" id="page-cron">
+      <div class="toolbar">
+        <h2 id="jobCount">Jobs</h2>
+        <button class="btn btn-primary" onclick="openCreateModal()">+ New Job</button>
+      </div>
+      <div id="jobList"></div>
+    </div>
+
+    <!-- PAGE: Services -->
+    <div class="page" id="page-services">
+      <h2>System Status</h2>
+      <div id="servicesContent"></div>
+    </div>
+
+    <!-- PAGE: Sessions -->
+    <div class="page" id="page-sessions">
+      <div class="toolbar">
+        <h2>Active Sessions</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="filterSessions('all')">All</button>
+          <button class="btn btn-secondary btn-sm" onclick="filterSessions('direct')">Main</button>
+          <button class="btn btn-secondary btn-sm" onclick="filterSessions('cron')">Cron</button>
+        </div>
+      </div>
+      <div id="sessionsContent"></div>
+    </div>
+
+    <!-- PAGE: Memory -->
+    <div class="page" id="page-memory">
+      <div class="toolbar">
+        <h2>Memory Files</h2>
+        <input type="text" id="memorySearch" placeholder="Search memory..." style="flex:1;max-width:300px">
+        <button class="btn btn-secondary btn-sm" onclick="searchMemory()"><span class="material-icons-outlined" style="font-size:16px">search</span> Search</button>
+      </div>
+      <div id="memoryContent"></div>
+      <div id="memoryViewer" class="memory-viewer"></div>
+    </div>
+
+    <!-- PAGE: Files -->
+    <div class="page" id="page-files">
+      <div class="file-manager-layout">
+        <div class="file-sidebar">
+          <h3>Quick Access</h3>
+          <div class="pinned-folders">
+            <button class="pinned-folder" onclick="navigateToPath('/')">
+              <span class="folder-icon">folder</span>
+              <span>workspace</span>
+            </button>
+            <button class="pinned-folder" onclick="navigateToPath('memory')">
+              <span class="folder-icon">psychology</span>
+              <span>memory</span>
+            </button>
+            <button class="pinned-folder" onclick="navigateToPath('projects')" id="filesProjPin" style="display:none">
+              <span class="folder-icon">folder_open</span>
+              <span>projects</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="file-main">
+          <div class="toolbar">
+            <div class="breadcrumb" id="fileBreadcrumb"></div>
+            <div style="flex:1"></div>
+            <button class="btn btn-secondary btn-sm" onclick="loadFiles(currentFilePath)">
+              <span class="material-icons-outlined" style="font-size:16px">refresh</span>
+            </button>
+          </div>
+
+          <div class="file-browser">
+            <div class="file-list-container">
+              <div class="file-list-header">
+                <div class="file-col-name">Name</div>
+                <div class="file-col-size">Size</div>
+                <div class="file-col-date">Modified</div>
+              </div>
+              <div id="fileList" class="file-list"></div>
+            </div>
+
+            <div class="file-preview-panel" id="filePreview" style="display:none">
+              <div class="preview-header">
+                <h3 id="previewFileName"></h3>
+                <button class="btn btn-secondary btn-sm" onclick="closePreview()"><span class="material-icons-outlined" style="font-size:16px">close</span></button>
+              </div>
+              <div id="previewContent" class="preview-content"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: Projects -->
+    <div class="page" id="page-projects">
+      <h2>Projects</h2>
+      <div id="projectsContent"></div>
+    </div>
+
+    <!-- PAGE: Integrations -->
+    <div class="page" id="page-integrations">
+      <h2>External Integrations</h2>
+      <p class="subtitle" style="margin-top:-8px;margin-bottom:24px">Monitor and control access to external APIs and services</p>
+      <div id="integrationsContent"></div>
+    </div>
+
+    <!-- PAGE: Config -->
+    <div class="page" id="page-config">
+      <h2>System Configuration</h2>
+      <div id="configContent"></div>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div class="modal-overlay" id="createModal">
+    <div class="modal">
+      <h2>Create Cron Job</h2>
+      <label>Name</label>
+      <input type="text" id="newName" placeholder="My Job">
+      <label>Schedule Type</label>
+      <select id="newSchedKind">
+        <option value="cron">Cron Expression</option>
+        <option value="every">Interval</option>
+        <option value="at">One-shot (ISO date)</option>
+      </select>
+      <label>Schedule Value</label>
+      <input type="text" id="newSchedValue" placeholder="0 9 * * * or 30m or 2026-03-01T10:00:00Z">
+      <label>Timezone</label>
+      <input type="text" id="newTz" placeholder="America/New_York" value="America/New_York">
+      <label>Session Target</label>
+      <select id="newSession">
+        <option value="isolated">Isolated</option>
+        <option value="main">Main</option>
+      </select>
+      <label>Payload Type</label>
+      <select id="newPayloadKind">
+        <option value="agentTurn">Agent Turn (message)</option>
+        <option value="systemEvent">System Event</option>
+      </select>
+      <label>Payload Text</label>
+      <textarea id="newPayloadText" placeholder="What should the agent do?"></textarea>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;">
+        <span>Enabled</span>
+        <div class="toggle">
+          <input type="checkbox" id="newEnabled" checked>
+          <span class="toggle-slider"></span>
+        </div>
+      </label>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeCreateModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="createJob()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

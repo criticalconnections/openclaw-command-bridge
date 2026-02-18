@@ -1,0 +1,26 @@
+{
+  "port": 3333,
+  "gateway": {
+    "url": "http://localhost:18789",
+    "token": null,
+    "autoDetect": true
+  },
+  "workspace": {
+    "path": null,
+    "autoDetect": true
+  },
+  "features": {
+    "email": true,
+    "files": true,
+    "memory": true,
+    "sessions": true,
+    "cron": true,
+    "integrations": true,
+    "projects": true
+  },
+  "ui": {
+    "theme": "dark",
+    "title": "Command Bridge",
+    "refreshInterval": 30000
+  }
+}
