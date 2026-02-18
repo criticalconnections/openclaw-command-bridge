@@ -23,6 +23,9 @@ function detectOpenClawConfig() {
     gatewayToken: process.env.OPENCLAW_GATEWAY_TOKEN || '',
     workspace: process.env.OPENCLAW_WORKSPACE || path.join(os.homedir(), '.openclaw/workspace'),
     port: process.env.PORT || 3333,
+    timezone: process.env.TIMEZONE || 'America/New_York',
+    weatherLocation: process.env.WEATHER_LOCATION || 'auto',
+    userName: process.env.USER_NAME || 'User',
   };
 
   // Try to load gateway.yaml or openclaw.json
@@ -765,6 +768,44 @@ app.post('/api/integrations/:id/toggle', (req, res) => {
 });
 
 // ====== HOME API (Generic Stats) ======
+// Home config (timezone, user, location)
+app.get('/api/home/config', (req, res) => {
+  const tz = CONFIG.timezone || 'America/New_York';
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', { 
+    timeZone: tz, hour: 'numeric', hour12: false 
+  });
+  const hour = parseInt(formatter.format(now));
+  
+  const dateFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  
+  const timeFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  let greeting = 'Good evening';
+  if (hour >= 5 && hour < 12) greeting = 'Good morning';
+  else if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+
+  res.json({
+    greeting,
+    userName: CONFIG.userName,
+    timezone: tz,
+    date: dateFormatter.format(now),
+    time: timeFormatter.format(now),
+    weatherLocation: CONFIG.weatherLocation,
+  });
+});
+
 app.get('/api/home/stats', (req, res) => {
   try {
     const stats = {};
@@ -821,6 +862,180 @@ app.get('/api/home/stats', (req, res) => {
     res.json(stats);
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ====== HOME API (Weather, Calendar, Todos, Activity) ======
+
+// Weather via wttr.in (configurable location)
+app.get('/api/home/weather', async (req, res) => {
+  try {
+    const location = req.query.location || process.env.WEATHER_LOCATION || 'auto';
+    const url = `https://wttr.in/${encodeURIComponent(location)}?format=j1`;
+    const https = require('https');
+    const http = require('http');
+    const fetcher = url.startsWith('https') ? https : http;
+    
+    const data = await new Promise((resolve, reject) => {
+      const request = fetcher.get(url, { timeout: 5000 }, (response) => {
+        let body = '';
+        response.on('data', chunk => body += chunk);
+        response.on('end', () => {
+          try { resolve(JSON.parse(body)); } 
+          catch (e) { reject(new Error('Invalid weather data')); }
+        });
+      });
+      request.on('error', reject);
+      request.on('timeout', () => { request.destroy(); reject(new Error('Weather request timed out')); });
+    });
+
+    const current = data.current_condition?.[0] || {};
+    const area = data.nearest_area?.[0] || {};
+    
+    res.json({
+      location: area.areaName?.[0]?.value || location,
+      region: area.region?.[0]?.value || '',
+      country: area.country?.[0]?.value || '',
+      temp_F: current.temp_F || 'N/A',
+      temp_C: current.temp_C || 'N/A',
+      feelslike_F: current.FeelsLikeF || current.temp_F,
+      feelslike_C: current.FeelsLikeC || current.temp_C,
+      condition: current.weatherDesc?.[0]?.value || 'Unknown',
+      humidity: current.humidity || 'N/A',
+      windSpeed: current.windspeedMiles || 'N/A',
+      windDir: current.winddir16Point || '',
+      icon: getWeatherIcon(current.weatherCode || ''),
+      forecast: (data.weather || []).slice(0, 3).map(day => ({
+        date: day.date,
+        maxTemp_F: day.maxtempF,
+        minTemp_F: day.mintempF,
+        maxTemp_C: day.maxtempC,
+        minTemp_C: day.mintempC,
+        condition: day.hourly?.[4]?.weatherDesc?.[0]?.value || '',
+      })),
+    });
+  } catch (e) {
+    res.json({ error: e.message, location: 'Unknown', temp_F: 'N/A', condition: 'Unavailable', icon: '🌡️' });
+  }
+});
+
+function getWeatherIcon(code) {
+  const c = parseInt(code);
+  if (!c) return '🌡️';
+  if (c === 113) return '☀️';
+  if (c === 116) return '⛅';
+  if ([119, 122].includes(c)) return '☁️';
+  if ([143, 248, 260].includes(c)) return '🌫️';
+  if ([176, 263, 266, 293, 296, 299, 302, 305, 308, 311, 314, 353, 356, 359].includes(c)) return '🌧️';
+  if ([179, 182, 185, 227, 230, 317, 320, 323, 326, 329, 332, 335, 338, 350, 362, 365, 368, 371, 374, 377, 392, 395].includes(c)) return '🌨️';
+  if ([200, 386, 389].includes(c)) return '⛈️';
+  return '🌤️';
+}
+
+// Calendar via gog CLI (optional)
+app.get('/api/home/calendar', (req, res) => {
+  try {
+    const days = req.query.days || 2;
+    const output = shell(`gog calendar events --days ${days} --json 2>/dev/null || gog cal events --days ${days} --json 2>/dev/null`);
+    const events = JSON.parse(output);
+    res.json({ events: Array.isArray(events) ? events : events.events || [] });
+  } catch (e) {
+    // Calendar not configured — return empty
+    res.json({ events: [], message: 'Calendar not configured. Install gog CLI and authenticate with Google.' });
+  }
+});
+
+// Todos (persisted to workspace or data dir)
+const TODOS_FILE = path.join(WORKSPACE, '.command-bridge-todos.json');
+
+function loadTodos() {
+  try {
+    if (fs.existsSync(TODOS_FILE)) return JSON.parse(fs.readFileSync(TODOS_FILE, 'utf8'));
+  } catch (e) {}
+  return [];
+}
+
+function saveTodos(todos) {
+  fs.writeFileSync(TODOS_FILE, JSON.stringify(todos, null, 2));
+}
+
+app.get('/api/home/todos', (req, res) => {
+  res.json(loadTodos());
+});
+
+app.post('/api/home/todos', (req, res) => {
+  const todos = loadTodos();
+  const todo = {
+    id: Date.now().toString(),
+    text: req.body.text || 'New task',
+    done: false,
+    created: new Date().toISOString(),
+  };
+  todos.push(todo);
+  saveTodos(todos);
+  res.json(todo);
+});
+
+app.put('/api/home/todos/:id', (req, res) => {
+  const todos = loadTodos();
+  const todo = todos.find(t => t.id === req.params.id);
+  if (!todo) return res.status(404).json({ error: 'Todo not found' });
+  if (req.body.text !== undefined) todo.text = req.body.text;
+  if (req.body.done !== undefined) todo.done = req.body.done;
+  saveTodos(todos);
+  res.json(todo);
+});
+
+app.delete('/api/home/todos/:id', (req, res) => {
+  let todos = loadTodos();
+  todos = todos.filter(t => t.id !== req.params.id);
+  saveTodos(todos);
+  res.json({ ok: true });
+});
+
+// Activity feed — recent file changes in workspace
+app.get('/api/home/activity', (req, res) => {
+  try {
+    const activities = [];
+    
+    // Check recent memory files
+    const memoryDir = path.join(WORKSPACE, 'memory');
+    if (fs.existsSync(memoryDir)) {
+      const files = fs.readdirSync(memoryDir).filter(f => f.endsWith('.md')).slice(-5);
+      for (const file of files) {
+        const stats = fs.statSync(path.join(memoryDir, file));
+        activities.push({
+          type: 'memory',
+          icon: 'psychology',
+          text: `Memory updated: ${file}`,
+          time: stats.mtime.toISOString(),
+        });
+      }
+    }
+
+    // Check recent cron runs
+    try {
+      const cronOut = cli('cron list --json');
+      const cronData = JSON.parse(cronOut);
+      const jobs = cronData.jobs || [];
+      for (const job of jobs) {
+        if (job.lastRun) {
+          activities.push({
+            type: 'cron',
+            icon: 'schedule',
+            text: `Cron: ${job.name || job.id}`,
+            time: job.lastRun,
+          });
+        }
+      }
+    } catch (e) {}
+
+    // Sort by time descending
+    activities.sort((a, b) => new Date(b.time) - new Date(a.time));
+    
+    res.json(activities.slice(0, 15));
+  } catch (e) {
+    res.json([]);
   }
 });
 
