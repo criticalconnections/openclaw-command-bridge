@@ -169,3 +169,16 @@ PORT=4444 npm start  # Use a different port
 **Support:** [GitHub Issues](https://github.com/openclaw/command-bridge/issues)
 
 **Docs:** [docs/](docs/)
+
+## Docker Hub (Pre-built Image)
+
+```bash
+docker pull ghcr.io/criticalconnections/openclaw-command-bridge:latest
+
+docker run -d -p 3333:3333 \
+  -e OPENCLAW_GATEWAY_URL=http://host.docker.internal:18789 \
+  -e OPENCLAW_GATEWAY_TOKEN=your-token \
+  -v ~/.openclaw/workspace:/workspace:ro \
+  --add-host=host.docker.internal:host-gateway \
+  ghcr.io/criticalconnections/openclaw-command-bridge:latest
+```
